@@ -62,13 +62,17 @@ exports.getDashboard = function (req, res) {
     Promise.all([
     userModel.count({ "role": 1}).exec(),
     userModel.count({ "role": 1,"is_verify":"yes","is_deleted":"no"}).exec(),
+    userModel.count({ "role": 1,"is_deleted":"yes"}).exec(),
     userModel.count({ "role": 2}).exec(),
     userModel.count({ "role": 2,"is_verify":"yes","is_deleted":"no"}).exec(),
+    userModel.count({ "role": 2,"is_deleted":"yes"}).exec(),
     ]).then(function(counts) {
     arr.total_trainee =  counts[0]; 
     arr.active_trainee = counts[1]; 
-    arr.total_member =  counts[2]; 
-    arr.active_member =  counts[3]; 
+    arr.delete_trainee = counts[2];
+    arr.total_member =  counts[3]; 
+    arr.active_member =  counts[4]; 
+    arr.delete_member =  counts[5];
     deferred.resolve({ "status": 200, data: arr, "message": "Data fetched Successfully" });
     });
     return deferred.promise;
@@ -96,7 +100,7 @@ exports.update = function (req, res) {
         if (err)
             deferred.reject({ "status": 500, data: [], "message": err.message });
 
-        deferred.resolve({ "status": 200, data: result, "message": "Updated Successfully" });
+        deferred.resolve({ "status": 200, data: result, "message": "Profile Updated Successfully" });
     });
 
     return deferred.promise;
@@ -117,13 +121,15 @@ exports.image_upload = function (req, res) {
         .resize(128)
         .write('public/uploads/profile/header/'+req.files[0].filename, function (err) {
         console.log(err)    
-        if (!err) console.log('done');
-        });
+        if (!err) 
         userModel.findByIdAndUpdate(req.body.id, req.body,{ new: true },function (err, result) {
         if (err)
-            deferred.reject({ "status": 500, data: [], "message": err.message });
-            deferred.resolve({ "status": 200, data: result, "message": "Updated Successfully" });
+           deferred.reject({ "status": 500, data: [], "message": err.message });
+           deferred.resolve({ "status": 200, data: result, "message": "Profile Image uploaded Successfully" });
+        });   
+            
         });
+        
         
     } else {
          deferred.resolve({ "status": 200, data:[], "message": "Please upload any image" });
@@ -136,33 +142,44 @@ exports.facebookSignup = function (req, res) {
     var deferred = Q.defer();
     console.log(req.body);
     if(req.body.id > 0 && req.body.provider=='FACEBOOK') {
-    userModel.find({ "facebook_auth_key": req.body.id,"reg_type": "fb" }, function (err, result) {
-        console.log(result.length);
-        if(result.length > 0) {
-            deferred.resolve({ "status": 200, data: result, "message": "","is_new":"no" });
-        } else {
-           
-            var newUser = new userModel();
-            newUser.first_name = (req.body.firstName)?req.body.firstName:"";
-            newUser.last_name = (req.body.lastName)?req.body.lastName:"";
-            newUser.email = (req.body.email)?req.body.email:"";
-            newUser.role = 2;
-            newUser.facebook_auth_key = req.body.id
-            newUser.reg_type  = 'fb';
-            newUser.is_verify  = 'yes';
-            
-            newUser.save(function (err) {
-                if (err) {
-                    deferred.reject({ "status": 500, data: [], "message": err.message });
+    userModel.find({ "email": req.body.email,"reg_type": "normal" }, function (err, result) { 
+       if(result.length > 0) {
+          deferred.resolve({ "status": 200, data: [], "message": "That email is already taken!","is_new":"exist"}); 
+       } else {
+            userModel.find({ "facebook_auth_key": req.body.id,"reg_type": "fb" }, function (err, result) {
+            console.log(result.length);
+            if(result.length > 0) {
+                if(result[0].is_deleted == 'yes') {
+                    deferred.resolve({ "status": 200, data: [], "message": "Your account is not active!","is_new":"exist"});  
                 } else {
-                     deferred.resolve({ "status": 200, data: [newUser], "message": "Inserted successfully","is_new":"yes" });
+                    deferred.resolve({ "status": 200, data: result, "message": "","is_new":"no" });  
                 }
-             })
-             
-        }
-    });
+            } else {
+
+                    var newUser = new userModel();
+                    newUser.first_name = (req.body.firstName)?req.body.firstName:"";
+                    newUser.last_name = (req.body.lastName)?req.body.lastName:"";
+                    newUser.email = (req.body.email)?req.body.email:"";
+                    newUser.role = 2;
+                    newUser.facebook_auth_key = req.body.id
+                    newUser.reg_type  = 'fb';
+                    newUser.is_verify  = 'yes';
+
+                    newUser.save(function (err) {
+                        if (err) {
+                            deferred.reject({ "status": 500, data: [], "message": err.message });
+                        } else {
+                             deferred.resolve({ "status": 200, data: [newUser], "message": "Inserted successfully","is_new":"yes" });
+                        }
+                     })
+
+                    }
+                });
+       }
+    });    
+    
     } else {
-        deferred.resolve({ "status": 200, data: [], "message": "Facebook id not found","is_new":"oth" });
+        //deferred.resolve({ "status": 200, data: [], "message": "Facebook id not found","is_new":"oth" });
     }
     return deferred.promise;
 };
@@ -172,10 +189,19 @@ exports.googleSignup = function (req, res) {
     var deferred = Q.defer();
     console.log(req.body);
     if(req.body.id > 0 && req.body.provider=='GOOGLE') {
-    userModel.find({ "google_auth_key": req.body.id,"reg_type": "google" }, function (err, result) {
+    userModel.find({ "email": req.body.email,"reg_type": "normal" }, function (err, result) { 
+        if(result.length > 0) {
+          deferred.resolve({ "status": 200, data: [], "message": "That email is already taken!","is_new":"exist"}); 
+       } else {
+           userModel.find({ "google_auth_key": req.body.id,"reg_type": "google" }, function (err, result) {
         console.log(result.length);
         if(result.length > 0) {
-            deferred.resolve({ "status": 200, data: result, "message": "","is_new":"no" });
+            if(result[0].is_deleted == 'yes') {
+                deferred.resolve({ "status": 200, data: [], "message": "Your account is not active!","is_new":"exist"});  
+            } else {
+              deferred.resolve({ "status": 200, data: result, "message": "","is_new":"no" });  
+            }
+            
         } else {
            
             var newUser = new userModel();
@@ -188,6 +214,7 @@ exports.googleSignup = function (req, res) {
             } 
             newUser.email = (req.body.email)?req.body.email:"";
             newUser.google_auth_key = req.body.id
+            newUser.role = 2;
             newUser.reg_type  = 'google';
             newUser.is_verify  = 'yes';
             
@@ -200,9 +227,12 @@ exports.googleSignup = function (req, res) {
              })
              
         }
-    });
+            });
+       }
+    });    
+    
     } else {
-        deferred.resolve({ "status": 200, data: [], "message": "Google id not found","is_new":"oth" });
+        //deferred.resolve({ "status": 200, data: [], "message": "Google id not found","is_new":"oth" });
     }
     return deferred.promise;
 };
@@ -214,7 +244,7 @@ exports.updateAboutme = function (req, res) {
         if (err)
             deferred.reject({ "status": 500, data: [], "message": err.message });
 
-        deferred.resolve({ "status": 200, data: result, "message": "Updated Successfully" });
+        deferred.resolve({ "status": 200, data: result, "message": "Aboutme Updated Successfully" });
     });
 
     return deferred.promise;
@@ -327,5 +357,42 @@ exports.facebookupdate = function (req) {
     });
     return deferred.promise;
 }
+
+
+
+exports.contact = function (req, res) {
+    var deferred = Q.defer();
+    var name = req.body.name;
+    var email = req.body.email;
+    var phone = req.body.phone;
+    var message = (req.body.message!='undefined')?req.body.message:"";
+    
+    //var resume_file = req.files[0].filename;
+    //var resume_file_path = 'public/uploads/resume/'+resume_file;
+     
+    var email_string = "Hello,<br><br>";
+    email_string += "Please check contact us details.<br><br>";
+    email_string += "<span>Name : </span><span>"+name+"</span><br>";
+    email_string += "<span>Email  : </span><span style='text-decoration:none;text-underline:none;'>"+email+"</span><br>";
+    email_string += "<span>Phone : </span><span>"+phone+"</span><br>";
+    email_string += "<span>Message : </span><span>"+message+"</span><br><br>";
+    email_string += "Thanks";
+
+    var mailOptions = {
+    from: 'Aerial Applications <smith.williams0910@gmail.com>',
+    to: 'joe@aerialapplications.com,tom@aerialapplications.com',
+    subject: 'Contact Us',
+    html: email_string
+    /*attachments: [{'filename': resume_file, 'path': resume_file_path}]*/
+    };
+
+    transporter.sendMail(mailOptions, function(error, info){
+     if (err)
+        deferred.reject({ "status": 500, data: [], "message": err.message }); 
+     });
+    deferred.resolve({ "status": 200, data: [], "message": "Thanks for contact with us!" });
+    return deferred.promise;
+    
+};
 
 

@@ -56,16 +56,16 @@ module.exports = function (passport) {
 
                     // if no user is found, return the message
                     if (!user)
-                        return done(null, false, { message: 'Invalid email or password!' });
+                        return done(null, false, { message: 'Invalid email or password!',status:500 });
                     // if user deleted
                     if (user.is_deleted == 'yes')
-                        return done(null, false, { message: 'Sorry no user found!' });
+                        return done(null, false, { message: 'Sorry no user found!',status:500 });
                      // if user not verified
                     if (user.is_verify == 'no')
-                        return done(null, false, { message: 'You have not verified your account.Please check your email!' });
+                        return done(null, false, { message: 'You have not verified your account.Please check your email!',status:401 });
                      // if password not match
                     if (!user.validPassword(password))
-                        return done(null, false, { message: 'Oops wrong password!' });
+                        return done(null, false, { message: 'Oops wrong password!',status:500 });
 
                     // all is well, return user
                     else {

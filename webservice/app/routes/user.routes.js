@@ -8,13 +8,24 @@ var Storage = multer.diskStorage({
         callback(null, "./public/uploads/profile");
     }
     ,filename: function (req, file, callback) {
-        callback(null, file.fieldname + "_" + Date.now() + "_" + file.originalname);
+        callback(null, file.fieldname + "_" + Date.now() + "_" + file.originalname.replace(/\s/g, '_'));
+    }
+});
+
+var Storage_resume = multer.diskStorage({
+    destination: function (req, file, callback) {
+        callback(null, "./public/uploads/resume");
+    }
+    ,filename: function (req, file, callback) {
+        callback(null, file.fieldname + "_" + Date.now() + "_" + file.originalname.replace(/\s/g, '_'));
     }
 });
 
 var uploadFile = multer({ storage: Storage });
 
 var upload = multer({ storage: Storage }).any();
+
+var uploadFile_resume = multer();
 //var fs = require('fs');
 
 
@@ -43,7 +54,7 @@ app.get('/user/login/facebook/return',
 app.post('/user/login', function(req, res, next ){
     passport.authenticate('local-login', function(err, user, info) {
       if (err) { return next(err) }
-      if (!user) { return res.json({ "status": 500, "message": info.message }) }
+      if (!user) { return res.json({ "status": info.status, "message": info.message }) }
       res.json({ "status": 200, data: user, "message": "Fetched Successfully" });
     })(req, res, next);   
 });    
@@ -53,7 +64,7 @@ app.post('/user/signup', function(req, res, next ){
     passport.authenticate('local-signup', function(err, user, info) {
       if (err) { return next(err) }
       if (!user) { return res.json({ "status": 500, "message": info.message }) }
-      res.json({ "status": 200, data: user, "message": "Fetched Successfully" });
+      res.json({ "status": 200, data: user, "message": "You have successfully registered.Please check your email for verify your account!" });
     })(req, res, next);   
 }); 
 
@@ -104,7 +115,7 @@ app.get('/user/dashboard', function (req, res) {
 
 
 app.post('/user/image',uploadFile.any(),function (req, res) {
-       console.log(req.body.image);
+       console.log(req.body);
         user_controller.image_upload(req).then(function (success) {
            res.status(success.status).send(success);
         }, function (failure) {
@@ -133,7 +144,16 @@ app.post('/user/delete',function (req, res) {
         }, function (failure) {
             res.status(failure.status).send(failure);
         });
-    });    
+    });
+    
+app.post('/user/contact',uploadFile_resume.any(),function (req, res) {
+        console.log(req.body);
+        user_controller.contact(req).then(function (success) {
+            res.status(success.status).send(success);
+        }, function (failure) {
+            res.status(failure.status).send(failure);
+        });
+    });      
  
 };
 
